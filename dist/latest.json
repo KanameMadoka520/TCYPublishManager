@@ -1,0 +1,85 @@
+{
+  "latest_version": "26.02.23.11.53",
+  "history": [
+    {
+      "version": "26.02.23.11.53",
+      "date": "2026/02/23 11:53",
+      "desc": "✨ [线路新增] 添加超级无敌国内优化无敌阿里云杭州BGP新线路 (aliyun.tcymc.space)\n 以及超级无敌阿里云北京BGP新线路（peking.tcymc.space) \n🔌 [服务器] 同步更新服务器列表 (servers.dat)，请更新以获取极致连接体验",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.23.11.53/update_26.02.23.11.53.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.23.11.53/update_26.02.23.11.53.zip"
+      }
+    },
+    {
+      "version": "26.02.18.10.40",
+      "date": "2026/02/18 10:40",
+      "desc": "🔌 [线路移除] 删除失效线路：湖北襄阳、湖南邵阳、香港高防、北京节点\n✨ [线路新增] 新增 宁波多线BGP (nb3.tcymc.space) 及 立陶宛维尔纽斯 (ltw.tcymc.space)\n🔧 [修复] 更新 Tritium 配置文件：解除粒子数量限制以便修复烟花爆炸可能导致的客户端崩溃问题",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.18.10.40/update_26.02.18.10.40.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.18.10.40/update_26.02.18.10.40.zip"
+      }
+    },
+    {
+      "version": "26.02.09.14.40",
+      "date": "2026/02/09 14:40",
+      "desc": "📦 [更新] Tritium 模组更新至 20260209 版本 (v26.9)\n🔌 [服务器] 同步更新服务器列表，排序2026年2月9日14时国内直连测试的线路结果 (servers.dat)，确保线路连接畅通",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.09.14.40/update_26.02.09.14.40.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.09.14.40/update_26.02.09.14.40.zip"
+      }
+    },
+    {
+      "version": "26.02.07.20.59",
+      "date": "2026/02/07 20:59",
+      "desc": "🚀 [优化] 阻止常用模组尝试自动连网更新\n⚡ [性能] 提高客户端启动和加载速度",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.07.20.59/update_26.02.07.20.59.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.07.20.59/update_26.02.07.20.59.zip"
+      }
+    },
+    {
+      "version": "26.02.07.20.14",
+      "date": "2026/02/07 20:14",
+      "desc": "🐛 [修复] 修复 Tritium 模组配置，解决远处实体闪烁问题 (关闭了实体剔除)\n📦 [更新] 替换 Tritium 模组为 20260204 版本\n⚠️ 说明：此项调整能改善视觉体验，但可能微小影响FPS上限。但实际上开启实体剔除也并不能改善本整合包的low帧情况，本整合包的卡顿有其他屎山引起",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.07.20.14/update_26.02.07.20.14.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.07.20.14/update_26.02.07.20.14.zip"
+      }
+    },
+    {
+      "version": "26.02.07.19.45",
+      "date": "2026/02/07 19:45",
+      "desc": "🔌 [服务器] 再次更新了服务器列表 (servers.dat) - 必须更新以获得最新线路",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.07.19.45/update_26.02.07.19.45.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.07.19.45/update_26.02.07.19.45.zip"
+      }
+    },
+    {
+      "version": "26.02.06.17.18",
+      "date": "2026/02/06 17:18",
+      "desc": "🔌 [服务器] 更新了服务器列表 (servers.dat) - 必须更新以连接服务器",
+      "opt_update": false,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.06.17.18/update_26.02.06.17.18.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.06.17.18/update_26.02.06.17.18.zip"
+      }
+    },
+    {
+      "version": "26.02.06.15.53",
+      "date": "2026/02/06 15:53",
+      "desc": "✨ [汉化] ChatPlus 模组汉化更新 (如果你希望汉化模组，就勾选此次更新)\n🔧 [配置] 优化了 ChatPlus 的默认设置",
+      "opt_update": true,
+      "download_urls": {
+        "cn": "https://gh-proxy.org/https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.06.15.53/update_26.02.06.15.53.zip",
+        "global": "https://github.com/KanameMadoka520/TCY-Server-Updates/releases/download/v26.02.06.15.53/update_26.02.06.15.53.zip"
+      }
+    }
+  ]
+}

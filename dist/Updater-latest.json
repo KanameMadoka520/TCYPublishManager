@@ -1,0 +1,6 @@
+{
+  "version": "1.0.2",
+  "url": "https://github.com/KanameMadoka520/TCY-Client-Updater/releases/download/v1.0.2/TCYClientUpdater-1.0.2.exe",
+  "desc": "1. 重构版本获取逻辑：实现多源全量轮询与容错机制，支持在设置页动态展示轮询地址状态。\n2. 交互体验升级：新增连接检查结果弹窗，合并客户端与更新器版本信息至统一视图。\n3. 功能增强：更新页新增“强制拉取历史版本”功能，支持从本地缓存渲染更新日志时间线。\n4. 镜像源优化：设置页集成 6 组常用 GitHub 境内加速镜像快捷按钮，支持一键切换。\n5. 开发者工具：新增可视化 JSON 编辑工具（VersionJsonEditor），支持多文件 Tab 切换与一键导出。\n6. 稳定性修复：修正 Unicode 智能引号导致的 Python SyntaxError 编译错误，并更新项目 Readme 与 Roadmap。",
+  "force": true
+}

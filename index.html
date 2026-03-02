@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCY Publish Manager</title>
+    <style>
+        :root {
+            --accent-color: #f59e0b;
+            --ease-spring: cubic-bezier(0.4, 0.0, 0.2, 1);
+            --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --mask-opacity: 0.4;
+            --card-bg: rgba(255,255,255,0.65);
+            --sidebar-bg: rgba(255,255,255,0.65);
+            --font-family: 'Segoe UI', system-ui, sans-serif;
+            --text-color: #333;
+            --titlebar-height: 32px;
+            --border-color: rgba(0,0,0,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            border-radius: 12px;
+            clip-path: inset(0 round 12px);
+            border: 1px solid rgba(255,255,255,0.25);
+            background: #f1f5f9;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* ========== Particle Canvas ========== */
+        #particle-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* ========== App Mask ========== */
+        #app-mask {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: white;
+            opacity: var(--mask-opacity);
+        }
+
+        /* ========== Custom Titlebar ========== */
+        #custom-titlebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--titlebar-height);
+            z-index: 9999;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding-left: 16px;
+        }
+
+        .drag-region {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 100px;
+            bottom: 0;
+            cursor: default;
+        }
+
+        .titlebar-text {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            z-index: 1;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .window-controls {
+            display: flex;
+            z-index: 2;
+            margin-left: auto;
+        }
+
+        .win-btn {
+            width: 40px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: all 0.2s;
+            color: #333;
+        }
+
+        .win-btn:hover {
+            background: rgba(128,128,128,0.2);
+            opacity: 1;
+        }
+
+        .win-btn.close:hover {
+            background: #e81123;
+            color: white;
+        }
+
+        .win-btn svg {
+            width: 12px;
+            height: 12px;
+            stroke: currentColor;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        /* ========== Sidebar ========== */
+        .sidebar {
+            width: 220px;
+            min-width: 220px;
+            padding-top: var(--titlebar-height);
+            backdrop-filter: blur(20px);
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            z-index: 10;
+        }
+
+        .brand {
+            padding: 20px 16px;
+            text-align: center;
+        }
+
+        .brand h1 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        .brand-sub {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .nav-list {
+            padding: 0 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s var(--ease-spring);
+            user-select: none;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.5);
+            transform: scale(1.02);
+        }
+
+        .nav-item.active {
+            background: var(--accent-color);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .nav-item.active svg {
+            stroke: white;
+        }
+
+        .nav-item svg {
+            width: 18px;
+            height: 18px;
+            stroke: #666;
+            fill: none;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 16px;
+            font-size: 11px;
+            opacity: 0.5;
+            text-align: center;
+        }
+
+        /* ========== Main Content Area ========== */
+        .main {
+            flex: 1;
+            padding-top: var(--titlebar-height);
+            overflow-y: auto;
+            padding-bottom: 36px;
+            min-width: 0;
+        }
+
+        /* ========== Scrollbar ========== */
+        .main::-webkit-scrollbar { width: 8px; }
+        .main::-webkit-scrollbar-track { background: transparent; }
+        .main::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.15); border-radius: 4px; }
+        .main::-webkit-scrollbar-thumb:hover { background-color: rgba(0,0,0,0.25); }
+
+        /* ========== Pages ========== */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s var(--ease-spring);
+            padding: 20px 40px;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ========== Cards ========== */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            transition: transform 0.3s var(--ease-spring), box-shadow 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+        }
+
+        .card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 16px;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            padding: 2px;
+            border-radius: 16px;
+            background: linear-gradient(45deg, transparent 40%, var(--accent-color) 50%, transparent 60%);
+            background-size: 200% 200%;
+            opacity: 0;
+            transition: opacity 0.3s;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+            animation: border-dance 2s linear infinite;
+        }
+
+        @keyframes border-dance {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ========== Buttons ========== */
+        .btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            background: var(--accent-color);
+            color: white;
+            transition: all 0.3s var(--ease-spring);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: none;
+        }
+
+        .btn.outline {
+            background: rgba(255,255,255,0.4);
+            border: 1px solid #ddd;
+            color: var(--accent-color);
+        }
+
+        .btn.small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn.danger {
+            background: #ef4444;
+        }
+
+        .btn.success {
+            background: #10b981;
+        }
+
+        /* ========== Inputs ========== */
+        input[type="text"], select, textarea {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            width: 100%;
+            outline: none;
+            font-family: inherit;
+            color: #333;
+            box-sizing: border-box;
+            transition: border 0.2s, box-shadow 0.2s;
+            background: rgba(255,255,255,0.6);
+            font-size: 13px;
+        }
+
+        input[type="text"]:focus, select:focus, textarea:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(245,158,11,0.2);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        input[readonly] {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* ========== Log Box ========== */
+        .log-box {
+            background: #111827;
+            color: #10b981;
+            padding: 16px;
+            border-radius: 12px;
+            height: 180px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* ========== Status Bar ========== */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 28px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #999;
+            z-index: 100;
+        }
+
+        .status-msg.ok { color: #10b981; }
+        .status-msg.err { color: #ef4444; }
+
+        /* ========== Wizard Steps ========== */
+        .wizard-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .step-indicator {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.4);
+            border: 1px solid rgba(0,0,0,0.05);
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .step-indicator.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .step-indicator.done {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        /* ========== Diff Items ========== */
+        .diff-item {
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .diff-item.added { background: #dcfce7; color: #166534; }
+        .diff-item.deleted { background: #fee2e2; color: #991b1b; }
+        .diff-item.modified { background: #ffedd5; color: #9a3412; }
+
+        .diff-section { margin-bottom: 12px; }
+        .diff-section-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+
+        /* ========== Manifest Composer Cards ========== */
+        .action-card {
+            background: rgba(255,255,255,0.5);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        .action-card:hover { background: rgba(255,255,255,0.7); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .action-type-badge {
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .action-type-badge.delete_keyword { background: #fee2e2; color: #991b1b; }
+        .action-type-badge.delete { background: #fecaca; color: #7f1d1d; }
+        .action-type-badge.copy_folder { background: #dcfce7; color: #166534; }
+        .action-type-badge.external { background: #dbeafe; color: #1e40af; }
+        .action-card .action-detail {
+            flex: 1;
+            font-size: 12px;
+            font-family: 'Consolas', monospace;
+            color: #555;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .btn-icon-delete {
+            width: 26px; height: 26px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #ef4444;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: bold;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-icon-delete:hover { background: #fee2e2; }
+        .add-section {
+            background: rgba(245,158,11,0.06);
+            border: 1px dashed rgba(245,158,11,0.3);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 10px;
+        }
+        .add-section h4 {
+            font-size: 13px; font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 8px;
+        }
+        .hint-text {
+            font-size: 11px; color: #999;
+            margin-top: 2px; font-style: italic;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.5);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .summary-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+        .summary-label { color: #666; }
+        .summary-value { font-weight: 600; color: #333; font-family: 'Consolas', monospace; }
+
+        /* ========== Timeline ========== */
+        .timeline {
+            position: relative;
+            padding-left: 28px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent-color), rgba(0,0,0,0.08));
+            border-radius: 1px;
+        }
+
+        .tl-item {
+            position: relative;
+            margin-bottom: 10px;
+            padding: 8px 0;
+        }
+
+        .tl-dot {
+            position: absolute;
+            left: -24px;
+            top: 10px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+
+        .tl-dot.optional {
+            background: #64748b;
+            box-shadow: 0 0 0 2px #64748b;
+        }
+
+        /* ========== History Items ========== */
+        .hist-item {
+            background: rgba(255,255,255,0.4);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.2s var(--ease-spring);
+        }
+
+        .hist-item:hover {
+            background: rgba(255,255,255,0.6);
+        }
+
+        .hist-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hist-item-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .hist-item-version {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--accent-color);
+        }
+
+        .hist-item-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .hist-item-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .badge-req { background: #ef4444; color: white; }
+        .badge-opt { background: #10b981; color: white; }
+
+        .hist-item-desc {
+            font-size: 12px;
+            color: #888;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 300px;
+        }
+
+        .hist-item-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .hist-edit-form {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+        }
+
+        /* ========== Drop Overlay ========== */
+        .drop-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(255,255,255,0.85);
+            border: 3px dashed var(--accent-color);
+            justify-content: center;
+            align-items: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--accent-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .drop-overlay.visible {
+            display: flex;
+        }
+
+        /* ========== Form Layout Helpers ========== */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .input-with-btn {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-with-btn input {
+            flex: 1;
+        }
+
+        /* ========== Checkbox styling ========== */
+        .subdir-checks {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .subdir-checks label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 400;
+            color: #555;
+            margin-bottom: 0;
+        }
+
+        /* ========== Misc ========== */
+        .text-muted { color: #999; font-size: 13px; }
+        .mt-8 { margin-top: 8px; }
+        .mt-12 { margin-top: 12px; }
+        .mb-8 { margin-bottom: 8px; }
+        .flex-gap-8 { display: flex; gap: 8px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+
+<!-- Particle Canvas -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- App Mask -->
+<div id="app-mask"></div>
+
+<!-- Custom Titlebar -->
+<div id="custom-titlebar">
+    <div class="drag-region pywebview-drag-region"></div>
+    <span class="titlebar-text">TCY Publish Manager</span>
+    <div class="window-controls">
+        <div class="win-btn" onclick="pywebview.api.min_window()">
+            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div class="win-btn close" onclick="pywebview.api.close_window()">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+    </div>
+</div>
+
+<!-- Drop Overlay -->
+<div class="drop-overlay" id="dropOverlay">拖拽 JSON 文件到此处加载</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="brand">
+        <h1>TCY Publish Manager</h1>
+        <div class="brand-sub">版本发布管理工具</div>
+    </div>
+    <div class="nav-list">
+        <div class="nav-item active" data-page="client" onclick="switchPage('client')">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            客户端版本
+        </div>
+        <div class="nav-item" data-page="updater" onclick="switchPage('updater')">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            更新器版本
+        </div>
+        <div class="nav-item" data-page="publish" onclick="switchPage('publish')">
+            <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+            发布新版本
+        </div>
+    </div>
+    <div class="sidebar-footer">v1.0.0</div>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+    <div class="page active" id="page-client"></div>
+    <div class="page" id="page-updater"></div>
+    <div class="page" id="page-publish"></div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+    <span class="status-msg" id="statusMsg">就绪</span>
+    <span id="statusRight"></span>
+</div>
+
+<script>
+/* ==========================================================================
+   Global State
+   ========================================================================== */
+let clientData = null;
+let updaterData = null;
+let clientFilename = 'latest.json';
+let updaterFilename = 'Updater-latest.json';
+let editingHistIndex = -1;
+/* --- Publish Wizard State (4-step manual manifest composer) --- */
+let publishStep = 0;
+let publishLog = [];
+let githubConfig = JSON.parse(localStorage.getItem('tcy_github_config') || '{}');
+let manifestActions = [];      // [{type, folder, keyword, path, src, dest, _local_path}, ...]
+let manifestExternals = [];    // [{name, url, path, size, sha256, _local_path}, ...]
+let copySources = [];          // [{src, local_path}, ...]
+let publishManifest = null;
+let publishUploadUrl = '';
+let publishHtmlUrl = '';
+let _pub_token = '', _pub_owner = '', _pub_repo = '', _pub_version = '', _pub_desc = '';
+let _pub_optUpdate = false;
+const GAME_ROOT = '.minecraft/versions/\u5F02\u754C\u6218\u6597\u5E7B\u60F3/';
+const GH_PROXY = 'https://gh-proxy.org/';
+
+/* ==========================================================================
+   Utility Functions
+   ========================================================================== */
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(String(s)));
+    return d.innerHTML;
+}
+
+function formatSize(bytes) {
+    if (!bytes && bytes !== 0) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function setStatus(msg, type) {
+    const el = document.getElementById('statusMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status-msg' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+}
+
+function saveGithubConfig() {
+    localStorage.setItem('tcy_github_config', JSON.stringify(githubConfig));
+}
+
+function addPublishLog(msg) {
+    publishLog.push('[' + new Date().toLocaleTimeString() + '] ' + msg);
+    const logEl = document.getElementById('publish-log');
+    if (logEl) {
+        logEl.innerHTML = publishLog.map(function(l) { return '<div>' + esc(l) + '</div>'; }).join('');
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+}
+
+/* ==========================================================================
+   Navigation
+   ========================================================================== */
+function switchPage(pageId) {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    var navEl = document.querySelector('[data-page="' + pageId + '"]');
+    if (navEl) navEl.classList.add('active');
+    var pageEl = document.getElementById('page-' + pageId);
+    if (pageEl) pageEl.classList.add('active');
+}
+
+/* ==========================================================================
+   Backend Callback Functions (called via evaluate_js)
+   ========================================================================== */
+function initApp(data) {
+    if (data.client_data) {
+        clientData = data.client_data;
+        clientFilename = data.client_filename || 'latest.json';
+    }
+    if (data.updater_data) {
+        updaterData = data.updater_data;
+        updaterFilename = data.updater_filename || 'Updater-latest.json';
+    }
+    renderClientEditor();
+    renderUpdaterEditor();
+    renderPublishEditor();
+    setStatus('已加载: ' + (data.files || []).join(', '), 'ok');
+    document.getElementById('statusRight').textContent = '目录文件: ' + (data.files || []).join(', ');
+}
+
+async function onReleaseCreated(result) {
+    if (result.error) {
+        addPublishLog('创建 Release 失败: ' + result.error);
+        alert(result.error);
+        return;
+    }
+    addPublishLog('Release 创建成功! ID: ' + result.release_id);
+    addPublishLog('URL: ' + result.html_url);
+    publishUploadUrl = result.upload_url;
+    publishHtmlUrl = result.html_url;
+
+    /* Upload ZIP */
+    addPublishLog('--- 上传更新 ZIP ---');
+    var zipPath = githubConfig.last_zip_path;
+    if (zipPath) {
+        try {
+            var upRes = await pywebview.api.gh_upload_asset(_pub_token, publishUploadUrl, zipPath);
+            if (upRes.error) addPublishLog('上传 ZIP 失败: ' + upRes.error);
+            else addPublishLog('ZIP 上传成功: ' + upRes.browser_download_url);
+        } catch (e) {
+            addPublishLog('上传 ZIP 异常: ' + e);
+        }
+    }
+
+    /* Upload external files from local paths */
+    addPublishLog('--- 上传外部文件 ---');
+    if (manifestExternals && manifestExternals.length > 0) {
+        for (var i = 0; i < manifestExternals.length; i++) {
+            var ef = manifestExternals[i];
+            if (!ef._local_path) { addPublishLog('  跳过 ' + ef.name + ' (无本地路径)'); continue; }
+            addPublishLog('上传 (' + (i + 1) + '/' + manifestExternals.length + '): ' + ef.name);
+            try {
+                var upRes2 = await pywebview.api.gh_upload_asset(_pub_token, publishUploadUrl, ef._local_path);
+                if (upRes2.error) addPublishLog('  失败: ' + upRes2.error);
+                else addPublishLog('  成功: ' + upRes2.browser_download_url);
+            } catch (ue) {
+                addPublishLog('  上传异常: ' + ue);
+            }
+        }
+    } else {
+        addPublishLog('无外部文件需要上传');
+    }
+
+    /* Update latest.json */
+    addPublishLog('--- 更新 latest.json ---');
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    var now = new Date();
+    var dateStr = now.getFullYear() + '/' + pad(now.getMonth() + 1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    var zipName = githubConfig.zip_name || ('update_' + _pub_version + '.zip');
+    var tag = 'v' + _pub_version;
+    var globalUrl = 'https://github.com/' + _pub_owner + '/' + _pub_repo + '/releases/download/' + tag + '/' + zipName;
+    var newEntry = {
+        version: _pub_version,
+        date: dateStr,
+        desc: _pub_desc || '',
+        opt_update: _pub_optUpdate,
+        download_urls: { cn: GH_PROXY + globalUrl, global: globalUrl }
+    };
+    pywebview.api.gh_update_latest(_pub_token, _pub_owner, _pub_repo, 'versions', JSON.stringify(newEntry));
+}
+
+function onLatestJsonUpdated(result) {
+    if (result.error) {
+        addPublishLog('更新 latest.json 失败: ' + result.error);
+    } else {
+        addPublishLog('latest.json 更新成功!');
+        addPublishLog('latest_version: ' + result.latest_version);
+        addPublishLog('历史版本数: ' + result.history_count);
+        if (result.download_url) addPublishLog('下载地址: ' + result.download_url);
+    }
+    addPublishLog('=== 发布流程完成！===');
+    if (publishHtmlUrl) {
+        addPublishLog('请前往 GitHub 验证: ' + publishHtmlUrl);
+        alert('发布完成！请前往 GitHub 验证:\n' + publishHtmlUrl);
+    }
+}
+
+/* ==========================================================================
+   Update latest_version from history
+   ========================================================================== */
+function updateLatestVersion() {
+    if (!clientData || !clientData.history || clientData.history.length === 0) return;
+    clientData.latest_version = clientData.history[0].version;
+    var el = document.getElementById('client-latest-version');
+    if (el) el.value = clientData.latest_version;
+}
+
+/* ==========================================================================
+   Collect Updater Data from DOM
+   ========================================================================== */
+function collectUpdaterData() {
+    if (!updaterData) return;
+    var ver = document.getElementById('updater-version');
+    var url = document.getElementById('updater-url');
+    var desc = document.getElementById('updater-desc');
+    var force = document.getElementById('updater-force');
+    if (ver) updaterData.version = ver.value;
+    if (url) updaterData.url = url.value;
+    if (desc) updaterData.desc = desc.value;
+    if (force) updaterData.force = force.value === 'true';
+}
+
+/* ==========================================================================
+   Render: Client Editor
+   ========================================================================== */
+function renderClientEditor() {
+    var wrap = document.getElementById('page-client');
+    if (!wrap) return;
+    if (!clientData) {
+        wrap.innerHTML = '<div class="card"><h3>未加载</h3><p class="text-muted">未检测到 latest.json，可拖拽文件到页面加载。</p></div>';
+        return;
+    }
+    var html = '';
+    /* Top info card */
+    html += '<div class="card">';
+    html += '<h3>基本信息</h3>';
+    html += '<div class="form-group"><label>latest_version（自动同步，只读）</label>';
+    html += '<input type="text" id="client-latest-version" value="' + esc(clientData.latest_version || '') + '" readonly></div>';
+    html += '<div class="flex-gap-8">';
+    html += '<button class="btn" onclick="addHistoryItem()">新增版本</button>';
+    html += '<button class="btn outline" onclick="loadAllFiles()">重新加载</button>';
+    html += '<button class="btn success" onclick="saveAllFiles()">全部保存到磁盘</button>';
+    html += '</div>';
+    html += '</div>';
+    /* Timeline card */
+    html += renderHistoryTimeline();
+    /* History list */
+    html += '<div id="historyList"></div>';
+    wrap.innerHTML = html;
+    renderHistoryList();
+}
+
+/* ==========================================================================
+   Render: History Timeline
+   ========================================================================== */
+function renderHistoryTimeline() {
+    if (!clientData || !clientData.history || clientData.history.length === 0) return '';
+    var html = '<div class="card"><h3>版本时间线</h3><div class="timeline">';
+    clientData.history.forEach(function(item) {
+        var isOpt = item.opt_update === true;
+        var dotClass = 'tl-dot' + (isOpt ? ' optional' : '');
+        var badgeHtml = isOpt
+            ? '<span style="color:#10b981; font-size:11px; font-weight:600;">可选</span>'
+            : '<span style="color:#ef4444; font-size:11px; font-weight:600;">必选</span>';
+        var descShort = (item.desc || '').replace(/\n/g, ' ').substring(0, 80);
+        html += '<div class="tl-item">';
+        html += '<div class="' + dotClass + '"></div>';
+        html += '<div style="display:flex; align-items:center; gap:8px;">';
+        html += '<span style="font-weight:700; color:var(--accent-color); font-size:13px;">' + esc(item.version || '') + '</span>';
+        html += '<span style="font-size:11px; color:#999;">' + esc(item.date || '') + '</span>';
+        html += badgeHtml;
+        html += '</div>';
+        html += '<div style="font-size:12px; color:#888; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:600px;">' + esc(descShort) + '</div>';
+        html += '</div>';
+    });
+    html += '</div></div>';
+    return html;
+}
+
+/* ==========================================================================
+   Render: History List
+   ========================================================================== */
+function renderHistoryList() {
+    var wrap = document.getElementById('historyList');
+    if (!wrap || !clientData || !clientData.history) return;
+    var html = '';
+    clientData.history.forEach(function(item, i) {
+        var isOpt = item.opt_update === true;
+        var badgeClass = isOpt ? 'badge-opt' : 'badge-req';
+        var badgeText = isOpt ? '可选' : '必选';
+        var descShort = (item.desc || '').replace(/\n/g, ' ').substring(0, 50);
+        html += '<div class="hist-item">';
+        html += '<div class="hist-item-header">';
+        html += '<div class="hist-item-info">';
+        html += '<span class="hist-item-version">' + esc(item.version || '') + '</span>';
+        html += '<span class="hist-item-date">' + esc(item.date || '') + '</span>';
+        html += '<span class="hist-item-badge ' + badgeClass + '">' + badgeText + '</span>';
+        html += '<span class="hist-item-desc">' + esc(descShort) + '</span>';
+        html += '</div>';
+        html += '<div class="hist-item-actions">';
+        html += '<button class="btn small outline" onclick="toggleHistEdit(' + i + ')">编辑</button>';
+        html += '<button class="btn small danger" onclick="deleteHistItem(' + i + ')">删除</button>';
+        html += '</div></div>';
+        if (editingHistIndex === i) {
+            html += buildHistEditForm(i, item);
+        }
+        html += '</div>';
+    });
+    if (clientData.history.length === 0) {
+        html = '<div class="card"><p class="text-muted">暂无历史版本条目。</p></div>';
+    }
+    wrap.innerHTML = html;
+}
+
+/* ==========================================================================
+   Build: History Edit Form
+   ========================================================================== */
+function buildHistEditForm(i, item) {
+    var urls = item.download_urls || {};
+    var h = '<div class="hist-edit-form">';
+    h += '<div class="form-row">';
+    h += '<div class="form-group"><label>版本号</label><input type="text" id="hist-ver-' + i + '" value="' + esc(item.version || '') + '"></div>';
+    h += '<div class="form-group"><label>日期</label><input type="text" id="hist-date-' + i + '" value="' + esc(item.date || '') + '"></div>';
+    h += '<div class="form-group"><label>更新类型</label><select id="hist-opt-' + i + '">';
+    h += '<option value="false"' + (!item.opt_update ? ' selected' : '') + '>必选更新</option>';
+    h += '<option value="true"' + (item.opt_update ? ' selected' : '') + '>可选更新</option>';
+    h += '</select></div>';
+    h += '</div>';
+    h += '<div class="form-group"><label>更新说明</label><textarea id="hist-desc-' + i + '" rows="3">' + esc(item.desc || '') + '</textarea></div>';
+    h += '<div class="form-row">';
+    h += '<div class="form-group"><label>国内下载链接 (cn)</label><input type="text" id="hist-cn-' + i + '" value="' + esc(urls.cn || '') + '"></div>';
+    h += '<div class="form-group"><label>国际下载链接 (global)</label><input type="text" id="hist-global-' + i + '" value="' + esc(urls.global || '') + '"></div>';
+    h += '</div>';
+    h += '<button class="btn success small" onclick="saveHistItem(' + i + ')" style="margin-top:6px">保存此条</button>';
+    h += '</div>';
+    return h;
+}
+
+/* ==========================================================================
+   History Item Actions
+   ========================================================================== */
+function toggleHistEdit(i) {
+    editingHistIndex = (editingHistIndex === i) ? -1 : i;
+    renderHistoryList();
+}
+
+function saveHistItem(i) {
+    if (!clientData || !clientData.history[i]) return;
+    var item = clientData.history[i];
+    item.version = document.getElementById('hist-ver-' + i).value;
+    item.date = document.getElementById('hist-date-' + i).value;
+    item.opt_update = document.getElementById('hist-opt-' + i).value === 'true';
+    item.desc = document.getElementById('hist-desc-' + i).value;
+    if (!item.download_urls) item.download_urls = {};
+    item.download_urls.cn = document.getElementById('hist-cn-' + i).value;
+    item.download_urls.global = document.getElementById('hist-global-' + i).value;
+    updateLatestVersion();
+    editingHistIndex = -1;
+    renderHistoryList();
+    setStatus('已更新第 ' + (i + 1) + ' 条历史记录（内存中，需保存到磁盘）', 'ok');
+}
+
+function deleteHistItem(i) {
+    if (!clientData || !clientData.history) return;
+    if (!confirm('确定删除第 ' + (i + 1) + ' 条版本记录？')) return;
+    clientData.history.splice(i, 1);
+    if (editingHistIndex === i) editingHistIndex = -1;
+    else if (editingHistIndex > i) editingHistIndex--;
+    updateLatestVersion();
+    renderClientEditor();
+    setStatus('已删除第 ' + (i + 1) + ' 条（内存中，需保存到磁盘）', 'ok');
+}
+
+function addHistoryItem() {
+    if (!clientData) {
+        clientData = { latest_version: '', history: [] };
+    }
+    if (!clientData.history) clientData.history = [];
+    var now = new Date();
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    var ver = pad(now.getFullYear() % 100) + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) + '.' + pad(now.getHours()) + '.' + pad(now.getMinutes());
+    var dateStr = now.getFullYear() + '/' + pad(now.getMonth() + 1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    var newItem = {
+        version: ver,
+        date: dateStr,
+        desc: '',
+        opt_update: false,
+        download_urls: { cn: '', global: '' }
+    };
+    clientData.history.unshift(newItem);
+    updateLatestVersion();
+    editingHistIndex = 0;
+    renderClientEditor();
+    setStatus('已新增版本 ' + ver + '（内存中，需保存到磁盘）', 'ok');
+}
+
+/* ==========================================================================
+   Render: Updater Editor
+   ========================================================================== */
+function renderUpdaterEditor() {
+    var wrap = document.getElementById('page-updater');
+    if (!wrap) return;
+    if (!updaterData) {
+        wrap.innerHTML = '<div class="card"><h3>未加载</h3><p class="text-muted">未检测到 Updater-latest.json，可拖拽文件到页面加载。</p></div>';
+        return;
+    }
+    var html = '<div class="card">';
+    html += '<h3>更新器版本配置</h3>';
+    html += '<div class="form-group"><label>版本号</label>';
+    html += '<input type="text" id="updater-version" value="' + esc(updaterData.version || '') + '"></div>';
+    html += '<div class="form-group"><label>下载地址</label>';
+    html += '<input type="text" id="updater-url" value="' + esc(updaterData.url || '') + '"></div>';
+    html += '<div class="form-group"><label>更新说明</label>';
+    html += '<textarea id="updater-desc" rows="4">' + esc(updaterData.desc || '') + '</textarea></div>';
+    html += '<div class="form-group"><label>强制更新</label>';
+    html += '<select id="updater-force">';
+    html += '<option value="true"' + (updaterData.force === true ? ' selected' : '') + '>是 (true)</option>';
+    html += '<option value="false"' + (updaterData.force !== true ? ' selected' : '') + '>否 (false)</option>';
+    html += '</select></div>';
+    html += '<div class="flex-gap-8">';
+    html += '<button class="btn success" onclick="saveUpdaterFields()">应用修改</button>';
+    html += '<button class="btn" onclick="saveAllFiles()">全部保存到磁盘</button>';
+    html += '</div>';
+    html += '</div>';
+    wrap.innerHTML = html;
+}
+
+function saveUpdaterFields() {
+    collectUpdaterData();
+    setStatus('更新器配置已更新（内存中，需保存到磁盘）', 'ok');
+}
+
+/* ==========================================================================
+   Render: Publish Editor (4-step manual manifest composer)
+   ========================================================================== */
+function renderPublishEditor() {
+    var wrap = document.getElementById('page-publish');
+    if (!wrap) return;
+    var stepNames = ['版本信息', '编排操作', '预览 & 打包', '发布到 GitHub'];
+
+    var nav = '<div class="wizard-nav">';
+    stepNames.forEach(function(name, i) {
+        var cls = 'step-indicator';
+        if (i === publishStep) cls += ' active';
+        else if (i < publishStep) cls += ' done';
+        nav += '<div class="' + cls + '" onclick="goPublishStep(' + i + ')">' + (i + 1) + '. ' + name + '</div>';
+    });
+    nav += '</div>';
+
+    var content = '';
+
+    /* ====== Step 0: 版本信息 ====== */
+    if (publishStep === 0) {
+        content = '<div class="card"><h3>步骤 1：版本 & GitHub 配置</h3>';
+        content += '<div class="form-group"><label>版本号</label>';
+        content += '<div class="input-with-btn"><input type="text" id="pub-version" value="' + esc(githubConfig.version || '') + '" placeholder="26.03.02.14.30">';
+        content += '<button class="btn small outline" onclick="suggestVersion()">当前时间</button></div>';
+        content += '<div class="hint-text">格式: YY.MM.DD.HH.MM（两位年份.月.日.时.分）。同时用作 Release Tag（自动加 v 前缀）和更新包文件名</div></div>';
+        content += '<div class="form-group"><label>GitHub Token</label>';
+        content += '<input type="password" id="pub-gh-token" value="' + esc(githubConfig.token || '') + '" placeholder="ghp_...">';
+        content += '<div class="hint-text">Personal Access Token (ghp_ 开头)，需 repo 权限。GitHub > Settings > Developer Settings > Tokens (classic)</div></div>';
+        content += '<div class="form-row">';
+        content += '<div class="form-group"><label>Owner</label><input type="text" id="pub-gh-owner" value="' + esc(githubConfig.owner || '') + '" placeholder="KanameMadoka520">';
+        content += '<div class="hint-text">github.com/{Owner}/{Repo} 中的 Owner</div></div>';
+        content += '<div class="form-group"><label>Repo</label><input type="text" id="pub-gh-repo" value="' + esc(githubConfig.repo || '') + '" placeholder="TCY-Server-Updates">';
+        content += '<div class="hint-text">存放更新文件的仓库名（不是更新器仓库）</div></div>';
+        content += '</div>';
+        content += '<div class="form-group"><label>更新说明</label>';
+        content += '<textarea id="pub-desc" rows="3" placeholder="本次更新说明...">' + esc(githubConfig.desc || '') + '</textarea>';
+        content += '<div class="hint-text">同时用于 Release 描述和 latest.json 的 desc 字段，支持换行</div></div>';
+        content += '<div class="form-group"><label>更新类型</label>';
+        content += '<select id="pub-opt-update"><option value="false"' + (githubConfig.opt_update ? '' : ' selected') + '>必选更新（所有玩家必须安装）</option>';
+        content += '<option value="true"' + (githubConfig.opt_update ? ' selected' : '') + '>可选更新（玩家可跳过，如纯汉化）</option></select></div>';
+        content += '<button class="btn" onclick="publishStep0Next()">下一步：编排操作</button>';
+        content += '</div>';
+    }
+
+    /* ====== Step 1: 编排操作 ====== */
+    else if (publishStep === 1) {
+        content = '<div class="card"><h3>步骤 2：编排操作 & 外部文件</h3>';
+
+        /* List existing actions */
+        if (manifestActions.length > 0) {
+            content += '<div style="margin-bottom:8px; font-size:12px; font-weight:600; color:#666;">操作列表 (' + manifestActions.length + ')</div>';
+            manifestActions.forEach(function(a, i) {
+                var detail = '';
+                if (a.type === 'delete_keyword') detail = 'folder=' + a.folder + '  keyword=' + a.keyword;
+                else if (a.type === 'delete') detail = 'path=' + a.path;
+                else if (a.type === 'copy_folder') detail = a.src + ' \u2192 ' + a.dest;
+                content += '<div class="action-card"><span class="action-type-badge ' + a.type + '">' + a.type + '</span>';
+                content += '<span class="action-detail" title="' + esc(detail) + '">' + esc(detail) + '</span>';
+                content += '<button class="btn-icon-delete" onclick="deleteAction(' + i + ')" title="删除">\u00D7</button></div>';
+            });
+        }
+
+        /* List existing external files */
+        if (manifestExternals.length > 0) {
+            content += '<div style="margin-bottom:8px; margin-top:12px; font-size:12px; font-weight:600; color:#666;">外部文件 (' + manifestExternals.length + ')</div>';
+            manifestExternals.forEach(function(ef, i) {
+                var detail = ef.name + ' \u2192 ' + ef.path;
+                content += '<div class="action-card"><span class="action-type-badge external">external</span>';
+                content += '<span class="action-detail" title="' + esc(detail) + '">' + esc(detail) + '</span>';
+                content += '<button class="btn-icon-delete" onclick="deleteExternal(' + i + ')" title="删除">\u00D7</button></div>';
+            });
+        }
+
+        if (manifestActions.length === 0 && manifestExternals.length === 0) {
+            content += '<div class="text-muted" style="margin-bottom:12px;">尚未添加任何操作或文件。请在下方添加。</div>';
+        }
+
+        /* === Add Action Form === */
+        content += '<div class="add-section"><h4>\u2795 添加操作</h4>';
+        content += '<div class="form-group"><label>操作类型</label>';
+        content += '<select id="add-action-type" onchange="onActionTypeChange()">';
+        content += '<option value="delete_keyword">delete_keyword（按关键词删除）</option>';
+        content += '<option value="delete">delete（删除单个文件）</option>';
+        content += '<option value="copy_folder">copy_folder（复制文件夹）</option>';
+        content += '</select></div>';
+        content += '<div id="action-type-form">';
+        content += renderActionTypeForm('delete_keyword');
+        content += '</div>';
+        content += '<button class="btn small" onclick="addAction()" style="margin-top:8px;">添加操作</button>';
+        content += '</div>';
+
+        /* === Add External File Form === */
+        content += '<div class="add-section" style="margin-top:10px;"><h4>\u2795 添加外部文件</h4>';
+        content += '<div class="hint-text" style="margin-bottom:8px;">外部文件不放入 ZIP，单独上传到 GitHub Release，由更新器独立下载。适用于 mod jar、servers.dat 等</div>';
+        content += '<div class="form-group"><label>选择本地文件</label>';
+        content += '<div class="input-with-btn"><input type="text" id="add-ef-local" readonly placeholder="点击浏览选择文件...">';
+        content += '<button class="btn small outline" onclick="browseExternalFile()">浏览</button></div></div>';
+        content += '<div class="form-row">';
+        content += '<div class="form-group"><label>文件名</label><input type="text" id="add-ef-name" placeholder="自动填充"></div>';
+        content += '<div class="form-group"><label>大小 (bytes)</label><input type="text" id="add-ef-size" placeholder="自动计算"></div>';
+        content += '</div>';
+        content += '<div class="form-group"><label>SHA256</label><input type="text" id="add-ef-sha256" placeholder="自动计算" style="font-family:Consolas,monospace; font-size:11px;"></div>';
+        content += '<div class="form-group"><label>游戏内路径</label><input type="text" id="add-ef-path" placeholder="' + esc(GAME_ROOT) + 'mods/xxx.jar">';
+        content += '<div class="hint-text">.jar 文件自动填入 mods/，.dat 文件自动填入根目录</div></div>';
+        content += '<div class="form-group"><label>下载 URL</label><input type="text" id="add-ef-url" placeholder="从 GitHub 配置自动生成" style="font-family:Consolas,monospace; font-size:11px;">';
+        content += '<div class="hint-text">格式: https://github.com/{owner}/{repo}/releases/download/v{version}/{filename}</div></div>';
+        content += '<button class="btn small" onclick="addExternalFile()">添加外部文件</button>';
+        content += '</div>';
+
+        content += '<div style="margin-top:16px; display:flex; gap:8px;">';
+        content += '<button class="btn outline" onclick="goPublishStep(0)">上一步</button>';
+        content += '<button class="btn" onclick="publishStep1Next()">下一步：预览 & 打包</button>';
+        content += '</div></div>';
+    }
+
+    /* ====== Step 2: 预览 & 打包 ====== */
+    else if (publishStep === 2) {
+        if (!publishManifest) buildManifest();
+        content = '<div class="card"><h3>步骤 3：Manifest 预览 & 打包</h3>';
+        content += '<div class="form-group"><label>manifest.json 预览（可直接编辑）</label>';
+        content += '<textarea id="pub-manifest-edit" rows="18" style="font-family:Consolas,monospace; font-size:11px;">' + esc(JSON.stringify(publishManifest, null, 2)) + '</textarea>';
+        content += '<div class="hint-text">你可以在此直接编辑 JSON，打包时将使用编辑后的内容</div></div>';
+        var defZipName = 'update_' + (githubConfig.version || '') + '.zip';
+        content += '<div class="form-group"><label>输出文件名</label>';
+        content += '<input type="text" id="pub-zip-name" value="' + esc(githubConfig.zip_name || defZipName) + '">';
+        content += '<div class="hint-text">建议格式: update_{版本号}.zip，生成在 exe 同目录下</div></div>';
+        if (copySources.length > 0) {
+            content += '<div style="font-size:12px; color:#666; margin-bottom:8px;">ZIP 将包含: manifest.json';
+            copySources.forEach(function(cs) { content += ' + ' + cs.src + '/'; });
+            content += '</div>';
+        }
+        content += '<div style="display:flex; gap:8px;">';
+        content += '<button class="btn outline" onclick="goPublishStep(1)">上一步</button>';
+        content += '<button class="btn" onclick="doPackageZip()">打包 ZIP</button>';
+        content += '</div></div>';
+    }
+
+    /* ====== Step 3: 发布到 GitHub ====== */
+    else if (publishStep === 3) {
+        var tag = 'v' + (githubConfig.version || '');
+        content = '<div class="card"><h3>步骤 4：发布到 GitHub</h3>';
+        content += '<div class="summary-card">';
+        content += '<div class="summary-row"><span class="summary-label">版本号</span><span class="summary-value">' + esc(githubConfig.version || '') + '</span></div>';
+        content += '<div class="summary-row"><span class="summary-label">Release Tag</span><span class="summary-value">' + esc(tag) + '</span></div>';
+        content += '<div class="summary-row"><span class="summary-label">仓库</span><span class="summary-value">' + esc((githubConfig.owner || '') + '/' + (githubConfig.repo || '')) + '</span></div>';
+        content += '<div class="summary-row"><span class="summary-label">ZIP 文件</span><span class="summary-value">' + esc(githubConfig.zip_name || '') + '</span></div>';
+        content += '<div class="summary-row"><span class="summary-label">外部文件数</span><span class="summary-value">' + manifestExternals.length + '</span></div>';
+        content += '<div class="summary-row"><span class="summary-label">更新类型</span><span class="summary-value">' + (githubConfig.opt_update ? '可选' : '必选') + '</span></div>';
+        content += '</div>';
+        content += '<div class="hint-text" style="margin-bottom:12px;">流程: 创建 Release \u2192 上传 ZIP \u2192 上传外部文件 \u2192 更新 latest.json（CN 镜像 URL 自动添加 gh-proxy.org 前缀）</div>';
+        content += '<div style="display:flex; gap:8px;">';
+        content += '<button class="btn outline" onclick="goPublishStep(2)">上一步</button>';
+        content += '<button class="btn" onclick="doGithubPublish()">开始发布</button>';
+        content += '</div></div>';
+    }
+
+    /* Log area (always visible) */
+    content += '<div class="card"><h3>操作日志</h3><div class="log-box" id="publish-log">';
+    content += publishLog.map(function(l) { return '<div>' + esc(l) + '</div>'; }).join('');
+    content += '</div></div>';
+
+    wrap.innerHTML = nav + content;
+    var logEl = document.getElementById('publish-log');
+    if (logEl) logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* Render sub-form for action type */
+function renderActionTypeForm(type) {
+    var h = '';
+    if (type === 'delete_keyword') {
+        h += '<div class="hint-text" style="margin-bottom:6px;">删除目录中文件名包含关键词的所有文件。常用于删除旧版 mod（如 keyword="tritium" 删除所有含 tritium 的文件）</div>';
+        h += '<div class="form-group"><label>文件夹路径 (folder)</label>';
+        h += '<input type="text" id="add-dk-folder" value="' + esc(GAME_ROOT + 'mods') + '"></div>';
+        h += '<div class="form-group"><label>关键词 (keyword)</label>';
+        h += '<input type="text" id="add-dk-keyword" placeholder="例如: tritium"></div>';
+    } else if (type === 'delete') {
+        h += '<div class="hint-text" style="margin-bottom:6px;">删除指定路径的单个文件。路径从 .minecraft/ 开始</div>';
+        h += '<div class="form-group"><label>文件路径 (path)</label>';
+        h += '<input type="text" id="add-del-path" value="' + esc(GAME_ROOT) + '" placeholder="' + esc(GAME_ROOT) + 'servers.dat"></div>';
+    } else if (type === 'copy_folder') {
+        h += '<div class="hint-text" style="margin-bottom:6px;">将 ZIP 内的文件夹覆盖到游戏目录。用于更新配置文件。需选择本地的源文件夹</div>';
+        h += '<div class="form-group"><label>本地源文件夹</label>';
+        h += '<div class="input-with-btn"><input type="text" id="add-cf-local" readonly placeholder="点击浏览选择...">';
+        h += '<button class="btn small outline" onclick="browseCopyFolder()">浏览</button></div></div>';
+        h += '<div class="form-row">';
+        h += '<div class="form-group"><label>ZIP 内文件夹名 (src)</label><input type="text" id="add-cf-src" placeholder="config"></div>';
+        h += '<div class="form-group"><label>游戏目标路径 (dest)</label><input type="text" id="add-cf-dest" placeholder="' + esc(GAME_ROOT) + 'config"></div>';
+        h += '</div>';
+    }
+    return h;
+}
+
+function onActionTypeChange() {
+    var type = document.getElementById('add-action-type').value;
+    document.getElementById('action-type-form').innerHTML = renderActionTypeForm(type);
+}
+
+function goPublishStep(step) {
+    publishStep = step;
+    renderPublishEditor();
+}
+
+/* ========== Step 0 -> Step 1 ========== */
+function publishStep0Next() {
+    var version = document.getElementById('pub-version').value.trim();
+    var token = document.getElementById('pub-gh-token').value.trim();
+    var owner = document.getElementById('pub-gh-owner').value.trim();
+    var repo = document.getElementById('pub-gh-repo').value.trim();
+    var desc = document.getElementById('pub-desc').value.trim();
+    var optUpdate = document.getElementById('pub-opt-update').value === 'true';
+    if (!version) { alert('请填写版本号'); return; }
+    if (!token) { alert('请填写 GitHub Token'); return; }
+    if (!owner || !repo) { alert('请填写 Owner 和 Repo'); return; }
+    githubConfig.version = version;
+    githubConfig.token = token;
+    githubConfig.owner = owner;
+    githubConfig.repo = repo;
+    githubConfig.desc = desc;
+    githubConfig.opt_update = optUpdate;
+    saveGithubConfig();
+    /* Update URLs in existing externals if version/owner/repo changed */
+    manifestExternals.forEach(function(ef) {
+        ef.url = 'https://github.com/' + owner + '/' + repo + '/releases/download/v' + version + '/' + ef.name;
+    });
+    publishStep = 1;
+    renderPublishEditor();
+}
+
+function suggestVersion() {
+    var now = new Date();
+    var p = function(n) { return String(n).padStart(2, '0'); };
+    document.getElementById('pub-version').value = p(now.getFullYear() % 100) + '.' + p(now.getMonth()+1) + '.' + p(now.getDate()) + '.' + p(now.getHours()) + '.' + p(now.getMinutes());
+}
+
+/* ========== Step 1: Add/Delete actions & external files ========== */
+function addAction() {
+    var type = document.getElementById('add-action-type').value;
+    var action = { type: type };
+    if (type === 'delete_keyword') {
+        action.folder = document.getElementById('add-dk-folder').value.trim();
+        action.keyword = document.getElementById('add-dk-keyword').value.trim();
+        if (!action.folder || !action.keyword) { alert('请填写文件夹路径和关键词'); return; }
+    } else if (type === 'delete') {
+        action.path = document.getElementById('add-del-path').value.trim();
+        if (!action.path) { alert('请填写文件路径'); return; }
+    } else if (type === 'copy_folder') {
+        action.src = document.getElementById('add-cf-src').value.trim();
+        action.dest = document.getElementById('add-cf-dest').value.trim();
+        var localPath = document.getElementById('add-cf-local').value.trim();
+        if (!action.src || !action.dest || !localPath) { alert('请填写源名称、目标路径并选择本地文件夹'); return; }
+        action._local_path = localPath;
+        copySources.push({ src: action.src, local_path: localPath });
+    }
+    manifestActions.push(action);
+    addPublishLog('添加操作: ' + type + (action.keyword ? ' keyword=' + action.keyword : '') + (action.path || ''));
+    renderPublishEditor();
+}
+
+function deleteAction(i) {
+    var a = manifestActions[i];
+    if (a && a.type === 'copy_folder') {
+        copySources = copySources.filter(function(cs) { return cs.src !== a.src; });
+    }
+    manifestActions.splice(i, 1);
+    renderPublishEditor();
+}
+
+function deleteExternal(i) {
+    manifestExternals.splice(i, 1);
+    renderPublishEditor();
+}
+
+async function browseCopyFolder() {
+    var path = await pywebview.api.select_directory();
+    if (path) {
+        document.getElementById('add-cf-local').value = path;
+        var parts = path.replace(/\\/g, '/').split('/');
+        var folderName = parts[parts.length - 1] || parts[parts.length - 2] || '';
+        document.getElementById('add-cf-src').value = folderName;
+        document.getElementById('add-cf-dest').value = GAME_ROOT + folderName;
+    }
+}
+
+async function browseExternalFile() {
+    var path = await pywebview.api.select_any_file();
+    if (!path) return;
+    addPublishLog('计算 SHA256: ' + path);
+    var info = await pywebview.api.calc_sha256(path);
+    if (info.error) { addPublishLog('错误: ' + info.error); alert(info.error); return; }
+    document.getElementById('add-ef-local').value = path;
+    document.getElementById('add-ef-name').value = info.name;
+    document.getElementById('add-ef-size').value = info.size;
+    document.getElementById('add-ef-sha256').value = info.sha256;
+    /* Auto-suggest path based on extension */
+    var ext = info.name.split('.').pop().toLowerCase();
+    var sugPath = GAME_ROOT;
+    if (ext === 'jar') sugPath += 'mods/' + info.name;
+    else if (ext === 'dat') sugPath += info.name;
+    else if (ext === 'toml' || ext === 'json' || ext === 'cfg') sugPath += 'config/' + info.name;
+    else sugPath += info.name;
+    document.getElementById('add-ef-path').value = sugPath;
+    /* Auto-generate URL from GitHub config */
+    var ver = githubConfig.version || '';
+    var owner = githubConfig.owner || '';
+    var repo = githubConfig.repo || '';
+    if (ver && owner && repo) {
+        document.getElementById('add-ef-url').value = 'https://github.com/' + owner + '/' + repo + '/releases/download/v' + ver + '/' + info.name;
+    }
+    addPublishLog('SHA256: ' + info.sha256.substring(0, 16) + '... (' + formatSize(info.size) + ')');
+}
+
+function addExternalFile() {
+    var ef = {
+        name: document.getElementById('add-ef-name').value.trim(),
+        path: document.getElementById('add-ef-path').value.trim(),
+        url: document.getElementById('add-ef-url').value.trim(),
+        size: parseInt(document.getElementById('add-ef-size').value) || 0,
+        sha256: document.getElementById('add-ef-sha256').value.trim(),
+        _local_path: document.getElementById('add-ef-local').value.trim()
+    };
+    if (!ef.name || !ef.path || !ef.url) { alert('请填写文件名、目标路径和下载 URL'); return; }
+    manifestExternals.push(ef);
+    addPublishLog('添加外部文件: ' + ef.name);
+    /* Clear form for next entry */
+    ['add-ef-local','add-ef-name','add-ef-size','add-ef-sha256','add-ef-path','add-ef-url'].forEach(function(id) {
+        var el = document.getElementById(id); if (el) el.value = '';
+    });
+    renderPublishEditor();
+}
+
+/* ========== Step 1 -> Step 2: Build manifest ========== */
+function buildManifest() {
+    var actions = manifestActions.map(function(a) {
+        var clean = { type: a.type };
+        if (a.type === 'delete_keyword') { clean.folder = a.folder; clean.keyword = a.keyword; }
+        else if (a.type === 'delete') { clean.path = a.path; }
+        else if (a.type === 'copy_folder') { clean.src = a.src; clean.dest = a.dest; }
+        return clean;
+    });
+    var externals = manifestExternals.map(function(e) {
+        var clean = { name: e.name, path: e.path, url: e.url, size: e.size };
+        if (e.sha256) clean.sha256 = e.sha256;
+        return clean;
+    });
+    publishManifest = { version: githubConfig.version || '', actions: actions, external_files: externals };
+}
+
+function publishStep1Next() {
+    if (manifestActions.length === 0 && manifestExternals.length === 0) {
+        alert('请至少添加一个操作或外部文件');
+        return;
+    }
+    buildManifest();
+    publishStep = 2;
+    renderPublishEditor();
+}
+
+/* ========== Step 2: Package ZIP ========== */
+async function doPackageZip() {
+    var editArea = document.getElementById('pub-manifest-edit');
+    if (editArea) {
+        try { publishManifest = JSON.parse(editArea.value); }
+        catch (e) { alert('Manifest JSON 格式错误: ' + e.message); return; }
+    }
+    var zipName = document.getElementById('pub-zip-name').value.trim();
+    if (!zipName) { alert('请填写输出文件名'); return; }
+    githubConfig.zip_name = zipName;
+    saveGithubConfig();
+    addPublishLog('打包 ZIP: ' + zipName);
+    try {
+        var res = await pywebview.api.do_package_zip(JSON.stringify(publishManifest), JSON.stringify(copySources), zipName);
+        if (res.error) { addPublishLog('打包失败: ' + res.error); alert(res.error); return; }
+        addPublishLog('打包完成: ' + res.path + ' (' + formatSize(res.size) + ', ' + res.files_count + ' 文件)');
+        githubConfig.last_zip_path = res.path;
+        saveGithubConfig();
+        publishStep = 3;
+        renderPublishEditor();
+    } catch (e) {
+        addPublishLog('打包失败: ' + e);
+    }
+}
+
+/* ========== Step 3: GitHub Publish ========== */
+async function doGithubPublish() {
+    var token = githubConfig.token;
+    var owner = githubConfig.owner;
+    var repo = githubConfig.repo;
+    var version = githubConfig.version;
+    var desc = githubConfig.desc || '';
+    var optUpdate = githubConfig.opt_update || false;
+    var tag = 'v' + version;
+    if (!token || !owner || !repo || !version) { alert('GitHub 配置不完整，请返回步骤 1 检查'); return; }
+    _pub_token = token; _pub_owner = owner; _pub_repo = repo;
+    _pub_version = version; _pub_desc = desc; _pub_optUpdate = optUpdate;
+    publishUploadUrl = ''; publishHtmlUrl = '';
+    addPublishLog('--- 创建 GitHub Release ---');
+    addPublishLog('仓库: ' + owner + '/' + repo + ', Tag: ' + tag);
+    pywebview.api.gh_create_release(token, owner, repo, tag, '版本 ' + version, desc || '自动发布');
+}
+
+/* ==========================================================================
+   Save & Load (via pywebview.api)
+   ========================================================================== */
+async function saveAllFiles() {
+    var saved = [];
+    try {
+        if (clientData) {
+            var r = await pywebview.api.save_json_file(clientFilename, JSON.stringify(clientData));
+            if (r.ok) saved.push(clientFilename);
+            else { setStatus('保存失败: ' + r.error, 'err'); return; }
+        }
+        if (updaterData) {
+            collectUpdaterData();
+            var r2 = await pywebview.api.save_json_file(updaterFilename, JSON.stringify(updaterData));
+            if (r2.ok) saved.push(updaterFilename);
+            else { setStatus('保存失败: ' + r2.error, 'err'); return; }
+        }
+        if (saved.length === 0) {
+            setStatus('没有数据可保存', 'err');
+        } else {
+            setStatus('已保存到磁盘: ' + saved.join(', '), 'ok');
+        }
+    } catch (e) {
+        setStatus('保存异常: ' + e, 'err');
+    }
+}
+
+async function loadAllFiles() {
+    try {
+        setStatus('正在加载文件列表...', '');
+        var listRes = await pywebview.api.list_json_files();
+        var files = listRes.files || [];
+        for (var idx = 0; idx < files.length; idx++) {
+            var f = files[idx];
+            var r = await pywebview.api.read_json_file(f);
+            if (r.data) {
+                if (f.toLowerCase() === 'latest.json') {
+                    clientData = r.data;
+                    clientFilename = f;
+                } else if (f.toLowerCase() === 'updater-latest.json') {
+                    updaterData = r.data;
+                    updaterFilename = f;
+                }
+            }
+        }
+        editingHistIndex = -1;
+        renderClientEditor();
+        renderUpdaterEditor();
+        setStatus('已重新加载', 'ok');
+        document.getElementById('statusRight').textContent = '目录文件: ' + files.join(', ');
+    } catch (e) {
+        setStatus('加载失败: ' + e, 'err');
+    }
+}
+
+/* ==========================================================================
+   Drag & Drop
+   ========================================================================== */
+var dragCounter = 0;
+
+document.body.addEventListener('dragenter', function(e) {
+    e.preventDefault();
+    dragCounter++;
+    document.getElementById('dropOverlay').classList.add('visible');
+});
+
+document.body.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+        dragCounter = 0;
+        document.getElementById('dropOverlay').classList.remove('visible');
+    }
+});
+
+document.body.addEventListener('dragover', function(e) {
+    e.preventDefault();
+});
+
+document.body.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dragCounter = 0;
+    document.getElementById('dropOverlay').classList.remove('visible');
+    var files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        if (!f.name.toLowerCase().endsWith('.json')) {
+            setStatus('忽略非 JSON 文件: ' + f.name, 'err');
+            continue;
+        }
+        (function(file) {
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    var text = ev.target.result;
+                    // Strip BOM + NULL bytes + leading/trailing whitespace
+                    text = text.replace(/^\uFEFF/, '').replace(/\0/g, '').trim();
+                    handleDroppedJson(file.name, JSON.parse(text));
+                } catch (err) {
+                    // Hex dump first 20 chars for diagnosis
+                    var raw = ev.target.result || '';
+                    var hex = [];
+                    for (var i = 0; i < Math.min(raw.length, 20); i++) {
+                        hex.push(raw.charCodeAt(i).toString(16).toUpperCase().padStart(4, '0'));
+                    }
+                    setStatus('JSON 解析失败: ' + file.name + ' | ' + err.message + ' | hex: ' + hex.join(' '), 'err');
+                }
+            };
+            reader.readAsText(file);
+        })(f);
+    }
+});
+
+function handleDroppedJson(filename, data) {
+    if (Array.isArray(data.history)) {
+        // latest.json format: has history array
+        clientData = data;
+        clientFilename = filename;
+        editingHistIndex = -1;
+        renderClientEditor();
+        switchPage('client');
+        setStatus('已从拖拽加载: ' + filename, 'ok');
+    } else if (data.version !== undefined) {
+        // Updater-latest.json format: has version field, no history array
+        updaterData = data;
+        updaterFilename = filename;
+        renderUpdaterEditor();
+        switchPage('updater');
+        setStatus('已从拖拽加载: ' + filename, 'ok');
+    } else {
+        setStatus('无法识别类型: ' + filename, 'err');
+    }
+}
+
+/* ==========================================================================
+   Particle System
+   ========================================================================== */
+(function() {
+    var canvas = document.getElementById('particle-canvas');
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function createParticle() {
+        return {
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.8,
+            vy: (Math.random() - 0.5) * 0.8,
+            size: 0.5 + Math.random() * 2,
+            baseOpacity: 0.1 + Math.random() * 0.5,
+            life: Math.random() * 1000
+        };
+    }
+
+    for (var i = 0; i < 60; i++) {
+        particles.push(createParticle());
+    }
+
+    function getAccentColor() {
+        return getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#f59e0b';
+    }
+
+    function animateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var color = getAccentColor();
+        for (var i = 0; i < particles.length; i++) {
+            var p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life++;
+            if (p.x < 0) p.x = canvas.width;
+            if (p.x > canvas.width) p.x = 0;
+            if (p.y < 0) p.y = canvas.height;
+            if (p.y > canvas.height) p.y = 0;
+            var opacity = p.baseOpacity + Math.sin(p.life * 0.05) * 0.1;
+            ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+})();
+
+/* ==========================================================================
+   Initialization
+   ========================================================================== */
+window.addEventListener('DOMContentLoaded', function() {
+    renderClientEditor();
+    renderUpdaterEditor();
+    renderPublishEditor();
+    /* Wait for pywebview to be ready */
+    if (window.pywebview) {
+        pywebview.api.mark_ready();
+    } else {
+        window.addEventListener('pywebviewready', function() {
+            pywebview.api.mark_ready();
+        });
+    }
+});
+</script>
+</body>
+</html>
